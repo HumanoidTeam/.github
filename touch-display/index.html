@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Robot Touch Display – Interactive Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --blue:#465ADE; --yellow:#FFC107; --red:#dc2626; --border:#e5e5e5;
+  --font:'Geist','Haffer',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{height:100%;background:#1b1b1d;overflow:hidden;font-family:var(--font);color:#fff}
+#viewport{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#stage{width:800px;height:1280px;position:relative;background:#000;overflow:hidden;flex:none;transform-origin:center center;border-radius:6px;box-shadow:0 0 0 2px #333,0 20px 60px rgba(0,0,0,.6)}
+
+/* screens */
+.screen{position:absolute;inset:0;background:#000;display:none}
+.screen.active{display:block}
+
+/* status bar */
+.sb{position:absolute;top:0;left:0;right:0;height:56px;padding:6px 10px;display:flex;align-items:center;justify-content:space-between;z-index:5}
+.sb .id{font-weight:600;font-size:20px}
+.sb .mid{position:absolute;left:0;right:0;text-align:center;font-weight:600;font-size:20px;pointer-events:none}
+.sb .r{display:flex;align-items:center;gap:10px}
+.sb .mode{font-size:24px;font-weight:500;display:flex;align-items:center;gap:8px;margin-right:2px}
+.pill{height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:20px;font-weight:500;padding:0 14px;cursor:pointer}
+.pill.dark{background:rgba(26,26,26,.9);color:#fff}
+.pill.white{background:#fff;color:#000}
+.pill.round{width:48px;padding:0}
+.pill.yellow{background:var(--yellow);color:#000}
+.pill:active{transform:scale(.94)}
+.pill svg{width:26px;height:26px}
+.recdot{width:34px;height:34px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center}
+.recdot i{width:14px;height:14px;border-radius:50%;background:#e03a2f;display:block}
+.recdot.blink i{animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.25}}
+
+/* nav */
+.nav{position:absolute;left:0;right:0;bottom:0;height:150px;display:flex;justify-content:center;align-items:center;gap:29px}
+.nav button{width:96px;height:96px;border-radius:50%;border:none;background:rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .1s}
+.nav button:active{transform:scale(.92)}
+.nav button.on{background:#fff}
+.nav svg{width:64px;height:64px}
+
+/* buttons */
+.btn{height:72px;border-radius:20px;border:2px solid var(--blue);background:var(--blue);color:#fff;font:500 26px var(--font);display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;flex:1;transition:transform .1s,filter .1s}
+.btn:active{transform:scale(.97);filter:brightness(.9)}
+.btn.sec{background:#fff;color:var(--blue)}
+.btn.icon{flex:none;width:72px;background:#fff;color:var(--blue)}
+.btn.pill-xl{border-radius:36px}
+
+/* home */
+.robot-wrap{position:absolute;left:10px;top:70px;width:374px;height:799px}
+.robot-wrap svg{width:100%;height:100%}
+.ver{position:absolute;left:10px;top:905px;width:380px}
+.item{border-radius:16px;padding:12.8px 16px;display:flex;align-items:center;gap:12px}
+.dropdown{background:rgba(255,255,255,.17);font-size:20px;font-weight:500;height:56px;cursor:pointer;justify-content:space-between}
+.dropdown .caret{transition:transform .2s}
+.dropdown.open .caret{transform:rotate(180deg)}
+.menu{background:#2a2a2a;border-radius:16px;margin-top:6px;padding:6px;display:none;font-size:20px;position:absolute;bottom:62px;left:0;right:0;z-index:4}
+.menu.open{display:block}
+.menu div{padding:12px 14px;border-radius:10px;cursor:pointer}
+.menu div:active,.menu div.sel{background:rgba(255,255,255,.18)}
+.log{position:absolute;left:10px;top:985px;width:380px;height:72px;border-radius:36px;font-size:28px}
+.alerts{position:absolute;left:400px;top:74px;width:380px;display:flex;flex-direction:column;gap:7px}
+.alert{background:#fbe4e4;border:1.6px solid var(--border);border-radius:16px;padding:12px 16px;display:flex;align-items:center;gap:12px;color:var(--red);cursor:pointer;transition:opacity .25s,transform .25s,max-height .3s;max-height:120px;overflow:hidden}
+.alert:active{background:#fff}
+.alert.gone{opacity:0;transform:translateX(60px);max-height:0;padding-top:0;padding-bottom:0;margin-bottom:-7px;border-width:0}
+.alert b{font-weight:500;font-size:22px;display:block}
+.alert small{display:block;color:#171717;font-size:15px;line-height:20px;margin-top:2px}
+.alert .t{flex:1}
+.alert svg{flex:none}
+.empty{display:none;color:#777;font-size:20px;padding:20px 6px}
+
+/* log overlay */
+.sheet{position:absolute;left:0;right:0;bottom:-100%;height:60%;background:#fff;color:#0a0a0a;border-radius:24px 24px 0 0;padding:24px;transition:bottom .3s;z-index:30;display:flex;flex-direction:column}
+.sheet.open{bottom:0}
+.sheet h3{font-size:28px;font-weight:600;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.sheet pre{flex:1;overflow:auto;font:15px/1.6 ui-monospace,Menlo,monospace;background:#f5f5f5;border-radius:12px;padding:14px;user-select:text}
+.sheet .x{width:44px;height:44px;border-radius:50%;border:none;background:#eee;font-size:24px;cursor:pointer}
+
+/* teach */
+.panel{position:absolute;left:0;right:0;background:#000;padding:15px 40px}
+.h1{font-size:44px;line-height:48px;font-weight:500;letter-spacing:-.5px;white-space:nowrap}
+.row{display:flex;gap:33px}
+.row.g50{gap:50px}
+.stack{position:absolute;left:40px;right:40px}
+.scene{position:absolute;left:40px;top:70px;width:720px;height:478px;overflow:hidden}
+.handle{position:absolute;left:158px;top:690px;width:485px;height:200px}
+
+/* camera */
+.cam{position:absolute;left:0;top:0;width:800px;height:1280px}
+.cam svg{width:100%;height:100%;display:block}
+.gauge{position:absolute;width:304px;height:125px;overflow:hidden}
+.gauge svg{position:absolute;left:23px;top:14px;width:257px;height:257px}
+.gauge .v{position:absolute;left:0;right:0;top:14px;text-align:center;color:#000;font:700 128px/1 var(--font);white-space:nowrap}
+.gauge .v small{font-size:60px;margin-left:6px}
+.traj{position:absolute;left:0;top:0;width:800px;height:274px}
+.dot{position:absolute;width:16px;height:16px;border-radius:50%;background:#4256d8;border:1.5px solid #11172f;opacity:0;transition:opacity .15s}
+.dot.show{opacity:1}
+.dot.start{width:24px;height:24px;background:#000;border:2px solid #fff;opacity:1}
+.dot.end{background:#e040e0;border-color:#fff}
+.timer{position:absolute;color:#fff;font:500 22px var(--font)}
+.tlabel{position:absolute;color:#fff;font:500 24px var(--font)}
+
+/* popup */
+.overlay{position:absolute;inset:0;background:rgba(0,0,0,.7);z-index:20;display:none}
+.popup{position:absolute;left:131px;top:276px;width:537px;height:773px;background:#fff;border-radius:20px;z-index:21;padding:40px 20px 13px;display:none;flex-direction:column;justify-content:space-between;color:#0a0a0a}
+.popup.show,.overlay.show{display:flex}
+.overlay.show{display:block}
+.popup h2{font-size:30px;line-height:36px;font-weight:600;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.popup h2.c{text-align:center}
+.popup .close{position:absolute;right:16px;top:12px;width:44px;height:44px;border:none;background:none;cursor:pointer}
+.popup .body{flex:1;display:flex;align-items:center;justify-content:center}
+.combo{width:300px;background:#fff;border:1.8px solid rgba(10,10,10,.1);border-radius:18px;box-shadow:0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -2px rgba(0,0,0,.1);padding:8px}
+.combo div{padding:10px 12px;font-size:26px;border-radius:14px;cursor:pointer}
+.combo div.sel{background:rgba(70,90,222,.14);color:var(--blue);font-weight:500}
+.popup .row{gap:10px}
+.person{width:300px;height:520px}
+.toast{position:absolute;left:50%;bottom:170px;transform:translateX(-50%);background:rgba(255,255,255,.95);color:#000;border-radius:24px;padding:12px 24px;font-size:22px;z-index:40;opacity:0;transition:opacity .25s;pointer-events:none}
+.toast.show{opacity:1}
+
+/* placeholder tabs */
+.ph{position:absolute;left:0;right:0;top:300px;text-align:center;font-size:40px;font-weight:500}
+.ph small{display:block;color:#888;font-size:22px;margin-top:12px;font-weight:400}
+
+/* flow hint */
+#hint{display:none;position:fixed;left:12px;top:12px;font:12px/1.4 var(--font);color:#9a9aa0;z-index:100;max-width:220px}
+#hint kbd{background:#333;border-radius:4px;padding:1px 5px;color:#ddd}
+</style>
+</head>
+<body>
+<div id="viewport"><div id="stage">
+
+<!-- ================= HOME ================= -->
+<section class="screen active" id="home">
+  <div class="sb">
+    <span class="id">A23</span><span class="mid">IDLE</span>
+    <div class="r" data-bar></div>
+  </div>
+  <div class="robot-wrap">
+    <svg viewBox="0 0 374 799" fill="none">
+      <defs>
+        <linearGradient id="rb" x1="0" x2="1"><stop offset="0" stop-color="#d8cfce"/><stop offset=".5" stop-color="#f1eae9"/><stop offset="1" stop-color="#c9bfbe"/></linearGradient>
+      </defs>
+      <g fill="url(#rb)" stroke="#a79d9c" stroke-width="1.5">
+        <ellipse cx="187" cy="72" rx="34" ry="46"/>
+        <path d="M102 118 Q187 96 272 118 L276 300 Q187 322 98 300Z"/>
+        <rect x="152" y="296" width="70" height="80" rx="10"/>
+        <rect x="52" y="124" width="30" height="42" rx="14" transform="rotate(-14 52 124)"/>
+        <rect x="292" y="124" width="30" height="42" rx="14" transform="rotate(14 322 124)"/>
+        <rect x="44" y="170" width="30" height="130" rx="12" transform="rotate(8 44 170)"/>
+        <rect x="300" y="170" width="30" height="130" rx="12" transform="rotate(-8 330 170)"/>
+        <rect x="40" y="300" width="28" height="100" rx="10" transform="rotate(6 40 300)"/>
+        <rect x="306" y="300" width="28" height="100" rx="10" transform="rotate(-6 334 300)"/>
+        <rect x="80" y="370" width="214" height="62" rx="12"/>
+        <rect x="100" y="432" width="174" height="90" rx="12"/>
+        <rect x="6" y="552" width="262" height="52" rx="2"/>
+        <rect x="16" y="608" width="242" height="24"/>
+        <rect x="6" y="634" width="262" height="46" rx="2"/>
+      </g>
+      <rect x="6" y="552" width="262" height="52" fill="#000" opacity=".06"/>
+    </svg>
+  </div>
+  <div class="ver">
+    <div class="menu" id="vermenu"><div class="sel">v0.9.3-beta (current)</div><div>v0.9.2</div><div>v0.9.1</div></div>
+    <div class="item dropdown" id="verbtn"><span id="vertxt">Software Version</span>
+      <svg class="caret" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M5 9l7 7 7-7"/></svg></div>
+  </div>
+  <button class="btn pill-xl log" id="logbtn"><svg width="26" height="26" viewBox="0 0 24 24" fill="#fff"><path d="M6 3h11a2 2 0 012 2v13a3 3 0 01-3 3H8a3 3 0 01-3-3V5a2 2 0 011-1.7zM8 8h8v2H8zm0 4h8v2H8z"/></svg>Log view</button>
+  <div class="alerts" id="alerts"></div>
+  <div class="empty" id="noalerts" style="position:absolute;left:400px;top:74px;width:380px">No active alerts</div>
+  <div class="nav" data-nav="home"></div>
+  <div class="sheet" id="logsheet"><h3>Log view<button class="x" id="logclose">×</button></h3><pre id="logtxt"></pre></div>
+</section>
+
+<!-- ================= TEACHING MAIN ================= -->
+<section class="screen" id="teach">
+  <div class="sb"><span class="id">A23</span><div class="r" data-bar="teach"></div></div>
+  <div class="stack" style="top:911px"><button class="btn" id="teachnew" style="width:720px;height:72px;flex:none">Teach new workflow</button></div>
+  <div class="nav" data-nav="route"></div>
+</section>
+
+<!-- ================= START POSITION ================= -->
+<section class="screen" id="start">
+  <div class="sb"><span class="id">A23</span><div class="r" data-bar="teach"></div></div>
+  <div class="scene">
+    <svg viewBox="0 0 720 478" width="720" height="478" style="position:absolute;left:0;top:0">
+      <ellipse cx="560" cy="466" rx="150" ry="8" fill="#222"/>
+      <rect x="418" y="360" width="290" height="50" rx="4" fill="#2a2a2c"/>
+      <rect x="418" y="410" width="290" height="46" rx="4" fill="#1d1d1f"/>
+      <rect x="430" y="452" width="270" height="6" fill="#16a87a"/>
+      <circle cx="560" cy="430" r="8" fill="#e8553a" stroke="#f6c04a" stroke-width="3"/>
+      <g stroke="#9a9a9c" stroke-width="2" fill="#d4d4d6">
+        <path d="M440 300 L470 270 L600 250 L612 275 L480 310Z"/>
+        <path d="M490 320 L530 360 L560 350 L520 310Z"/>
+        <path d="M585 190 L610 190 L612 270 L585 275Z"/>
+      </g>
+      <g fill="#16a87a"><circle cx="440" cy="312" r="14"/><circle cx="560" cy="265" r="10"/><circle cx="640" cy="205" r="12"/><circle cx="520" cy="355" r="14"/></g>
+      <rect x="590" y="120" width="52" height="86" rx="18" fill="#3a3a3d"/><rect x="592" y="132" width="16" height="22" fill="#16a87a"/>
+    </svg>
+  </div>
+  <svg class="handle" viewBox="0 0 485 200"><path d="M0 0H388V40L360 52H130L100 40Z" fill="#3a3a3c"/><rect x="82" y="40" width="210" height="30" rx="6" fill="#242426"/><rect x="170" y="70" width="40" height="40" fill="#c9c9cb"/><path d="M0 140 Q120 120 170 118 H215 Q270 120 380 140 L376 150 Q230 190 0 150Z" transform="translate(52 0)" fill="#d9d9dc"/></svg>
+  <div class="panel" style="top:932px;height:348px;display:flex;flex-direction:column;justify-content:space-between">
+    <div class="h1" style="width:720px">Move the robot to Start position.</div>
+    <div class="row">
+      <button class="btn icon" data-go="teach" aria-label="Leave"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#465ADE" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M13 8l-4 4 4 4M9 12h7"/></svg></button>
+      <button class="btn" id="confirmStart">Confirm</button>
+    </div>
+  </div>
+  <div class="nav" style="display:none"></div>
+</section>
+
+<!-- ================= CAMERA (moving / recording) ================= -->
+<section class="screen" id="cam">
+  <div class="cam" id="camsvg"></div>
+  <div class="sb"><span class="id">A23</span><div class="r" data-bar="rec"></div></div>
+
+  <!-- moving state -->
+  <div id="movingUI">
+    <div class="gauge" style="left:-7px;top:807px" data-gauge="ms"></div>
+    <div class="panel" style="top:932px;height:348px;display:flex;flex-direction:column;justify-content:space-between">
+      <div class="h1" style="width:720px" id="movingText">Move the robot to Start position.</div>
+      <div class="row"><button class="btn icon" id="movingLeave" aria-label="Leave"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#465ADE" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M13 8l-4 4 4 4M9 12h7"/></svg></button>
+        <button class="btn" id="movingConfirm">Confirm</button></div>
+    </div>
+  </div>
+
+  <!-- recording state -->
+  <div id="recUI" style="display:none">
+    <div class="gauge" style="left:280px;top:885px" data-gauge="n"></div>
+    <div class="panel" style="top:1007px;height:273px;padding:0">
+      <div class="traj" id="traj"></div>
+      <div class="timer" id="rectimer" style="left:300px;top:128px">00:00</div>
+      <div class="row g50" style="position:absolute;left:40px;top:187px;width:720px">
+        <button class="btn sec" id="rRestart">Restart</button>
+        <button class="btn" id="rTag">Tag</button>
+        <button class="btn sec" id="rComplete">Complete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- popups -->
+  <div class="overlay" id="ov"></div>
+  <div class="popup" id="pPoi">
+    <button class="close" id="poiX" aria-label="Close"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M9 9l6 6M15 9l-6 6"/></svg></button>
+    <h2 class="c">Choose the PoI</h2>
+    <div class="body"><div class="combo" id="poiList"></div></div>
+    <div class="row"><button class="btn sec" id="poiRemove">Remove</button><button class="btn" id="poiConfirm">Confirm</button></div>
+  </div>
+  <div class="popup" id="pComplete">
+    <h2>Move the robot to Start position.</h2>
+    <div class="body"></div>
+    <div class="row"><button class="btn sec" id="cLeave">Leave</button><button class="btn" id="cSave">Save</button></div>
+  </div>
+  <div class="popup" id="pSaved">
+    <h2 class="c">Saved!</h2>
+    <div class="body">
+      <svg class="person" viewBox="0 0 300 520"><ellipse cx="150" cy="506" rx="60" ry="4" fill="#eee"/><rect x="120" y="262" width="26" height="236" fill="#2c2c2e"/><rect x="152" y="262" width="26" height="236" fill="#1f1f21"/><path d="M110 490h40v16h-52zM152 490h40l12 16h-52z" fill="#000"/><path d="M96 130L120 112h60l24 18 6 150H92z" fill="#555"/><rect x="62" y="150" width="34" height="100" rx="6" fill="#4a4a4c"/><rect x="62" y="238" width="22" height="30" fill="#c58a4a"/><rect x="208" y="150" width="30" height="110" rx="6" fill="#4a4a4c"/><rect x="214" y="248" width="20" height="26" fill="#c58a4a"/><path d="M118 112l32 18 32-18v-14h-64z" fill="#3b3b3d"/><circle cx="150" cy="176" r="3" fill="#fff"/><g fill="#fff" opacity=".9"><circle cx="140" cy="186" r="2"/><circle cx="150" cy="186" r="2"/><circle cx="160" cy="186" r="2"/><circle cx="145" cy="196" r="2"/><circle cx="155" cy="196" r="2"/></g><rect x="128" y="40" width="44" height="58" rx="18" fill="#c58a4a"/><path d="M126 30q24-20 50 0l-2 14h-46z" fill="#d3894a"/><path d="M134 82q16 22 32 0v12q-16 16-32 0z" fill="#1c1c1c"/><g stroke="#222" fill="none" stroke-width="2"><rect x="130" y="60" width="16" height="10" rx="3"/><rect x="154" y="60" width="16" height="10" rx="3"/></g></svg>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PLACEHOLDER TABS ================= -->
+<section class="screen" id="tools"><div class="sb"><span class="id">A23</span><div class="r" data-bar></div></div><div class="ph">Toolbox<small>Not part of this flow in the Figma file</small></div><div class="nav" data-nav="tools"></div></section>
+<section class="screen" id="settings"><div class="sb"><span class="id">A23</span><div class="r" data-bar></div></div><div class="ph">Settings<small>Not part of this flow in the Figma file</small></div><div class="nav" data-nav="settings"></div></section>
+
+<div class="toast" id="toast"></div>
+</div></div>
+
+<div id="hint">Touch display · 800×1280<br>Try: <kbd>Route</kbd> tab → Teach new workflow → Confirm → Confirm → Tag / Complete.<br>Press <kbd>R</kbd> to reset.</div>
+
+<script>
+(() => {
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const stage = $('#stage');
+
+/* ---------- scale to fit ---------- */
+function fit(){ const s = Math.min(innerWidth/800, innerHeight/1280); stage.style.transform = `scale(${s})`; }
+addEventListener('resize', fit); fit();
+if(innerWidth>1100) document.getElementById('hint').style.display='block';
+
+/* ---------- icons ---------- */
+const I = {
+  battery:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M21 10v4"/><rect x="4" y="9" width="8" height="6" fill="currentColor" stroke="none"/></svg>',
+  spk:'<svg viewBox="0 0 24 24" fill="#000"><path d="M3 9h4l5-4v14l-5-4H3z"/><path d="M15 8c2 2 2 6 0 8M18 5c4 4 4 10 0 14" stroke="#000" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+  spkoff:'<svg viewBox="0 0 24 24" fill="#000"><path d="M3 9h4l5-4v14l-5-4H3z"/><path d="M16 9l5 6M21 9l-5 6" stroke="#000" stroke-width="2" stroke-linecap="round"/></svg>',
+  wifi:'<svg viewBox="0 0 24 24" fill="#000"><path d="M12 20L1 8c6-6 16-6 22 0z" transform="scale(.9) translate(1.3 1.5)"/></svg>',
+  cloud:'<svg viewBox="0 0 24 24" fill="#000"><path d="M7 19a5 5 0 01-.5-10A6 6 0 0118 10a4.5 4.5 0 01-.5 9z"/></svg>',
+  pause:'<svg viewBox="0 0 24 24" fill="#000"><rect x="6" y="4" width="4.5" height="16" rx="1"/><rect x="13.5" y="4" width="4.5" height="16" rx="1"/></svg>',
+  play:'<svg viewBox="0 0 24 24" fill="#000"><path d="M7 4l13 8-13 8z"/></svg>',
+  fan:'<svg width="22" height="22" viewBox="0 0 24 24" fill="#dc2626"><path d="M12 11a1.6 1.6 0 100 2 1.6 1.6 0 000-2zM11 3c-3 0-4 3-2 5l2 2zM21 11c0-3-3-4-5-2l-2 2zM13 21c3 0 4-3 2-5l-2-2zM3 13c0 3 3 4 5 2l2-2z"/></svg>',
+  chev:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.6" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>',
+};
+const navIcons = {
+  home:'<svg viewBox="0 0 64 64"><path d="M14 20h36v30H14z" fill="#2a2a2c"/><rect x="14" y="18" width="36" height="26" rx="12" fill="#333"/><rect x="18" y="26" width="28" height="12" rx="4" fill="#16a87a"/><circle cx="26" cy="32" r="2.4" fill="#fff"/><circle cx="38" cy="32" r="2.4" fill="#fff"/></svg>',
+  route:(c)=>`<svg viewBox="0 0 64 64" fill="none" stroke="${c}" stroke-width="5" stroke-linecap="round"><path d="M46 40H24a10 10 0 010-20h14a8 8 0 010 16H22"/><circle cx="48" cy="46" r="6" fill="${c}"/></svg>`,
+  tools:'<svg viewBox="0 0 64 64"><rect x="8" y="22" width="48" height="30" rx="5" fill="#000"/><path d="M24 22v-5a3 3 0 013-3h10a3 3 0 013 3v5" fill="none" stroke="#000" stroke-width="4"/><path d="M8 36h48" stroke="#8a8a8a" stroke-width="3"/><rect x="28" y="33" width="8" height="7" rx="1" fill="#8a8a8a"/></svg>',
+  settings:'<svg viewBox="0 0 64 64"><path d="M32 8l5 3 6-1 3 6 6 3-1 6 3 5-3 5 1 6-6 3-3 6-6-1-5 3-5-3-6 1-3-6-6-3 1-6-3-5 3-5-1-6 6-3 3-6 6 1z" fill="#000"/><circle cx="32" cy="32" r="9" fill="#8a8a8a"/></svg>'
+};
+const screensForTab = {home:'home',route:'teach',tools:'tools',settings:'settings'};
+$$('[data-nav]').forEach(n=>{
+  const active = n.dataset.nav;
+  [['home',navIcons.home],['route',navIcons.route(active==='route'?'#465ADE':'#465ADE')],['tools',navIcons.tools],['settings',navIcons.settings]].forEach(([k,svg])=>{
+    const b = document.createElement('button'); b.innerHTML = svg; if(k===active) b.classList.add('on');
+    b.onclick = ()=> go(screensForTab[k]); n.appendChild(b);
+  });
+});
+
+/* ---------- global state ---------- */
+const S = { muted:false, paused:false, battery:70, recSeconds:0, recTimer:null, num:0, recording:false, tags:[], poi:null };
+
+/* ---------- status bars ---------- */
+function bar(el, mode){
+  el.innerHTML = '';
+  const add = h => { const d=document.createElement('div'); d.innerHTML=h; el.appendChild(d.firstElementChild); return el.lastElementChild; };
+  if(mode==='teach'||mode==='rec'){
+    const m = add(`<span class="mode">Teaching${mode==='rec' ? '<span class="recdot blink"><i></i></span>' : ''}</span>`);
+    const p = add(`<span class="pill round yellow" title="Pause / resume">${S.paused?I.play:I.pause}</span>`);
+    p.onclick = ()=>{ S.paused=!S.paused; refreshBars(); toast(S.paused?'Teaching paused':'Teaching resumed'); };
+  }
+  add(`<span class="pill dark">${I.battery}${S.battery}%</span>`);
+  const sp = add(`<span class="pill round white">${S.muted?I.spkoff:I.spk}</span>`);
+  sp.onclick = ()=>{ S.muted=!S.muted; refreshBars(); toast(S.muted?'Sound off':'Sound on'); };
+  const w = add(`<span class="pill white" style="padding:0 18px;gap:6px">${I.wifi}${I.cloud}</span>`);
+  w.onclick = ()=> toast('Wi-Fi: Low · Cloud: Connected');
+}
+function refreshBars(){ $$('[data-bar]').forEach(b=>bar(b,b.dataset.bar)); }
+refreshBars();
+
+/* ---------- toast ---------- */
+let tt; function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>el.classList.remove('show'),1500); }
+
+/* ---------- navigation ---------- */
+function go(id){
+  $$('.screen').forEach(s=>s.classList.toggle('active', s.id===id));
+  if(id!=='cam'){ stopRec(); }
+}
+$$('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
+
+/* ---------- HOME ---------- */
+const alertData = Array.from({length:6},()=>({t:'Fan motor heat rising', d:'Slow or pause task. Check nothing is blocking fan.'}));
+function renderAlerts(){
+  const box=$('#alerts'); box.innerHTML='';
+  alertData.forEach((a,i)=>{
+    const el=document.createElement('div'); el.className='alert';
+    el.innerHTML=`${I.fan}<div class="t"><b>${a.t}</b><small>${a.d}</small></div>${I.chev}`;
+    el.onclick=()=>{ el.classList.add('gone'); setTimeout(()=>{ alertData[i]=null; el.remove(); if(!box.children.length) $('#noalerts').style.display='block'; log('Alert acknowledged: '+a.t); },260); };
+    box.appendChild(el);
+  });
+}
+renderAlerts();
+
+$('#verbtn').onclick=e=>{ e.stopPropagation(); $('#vermenu').classList.toggle('open'); $('#verbtn').classList.toggle('open'); };
+$$('#vermenu div').forEach(d=>d.onclick=e=>{ e.stopPropagation(); $$('#vermenu div').forEach(x=>x.classList.remove('sel')); d.classList.add('sel'); $('#vertxt').textContent='Software '+d.textContent.split(' ')[0]; $('#vermenu').classList.remove('open'); $('#verbtn').classList.remove('open'); });
+$('#home').addEventListener('click',()=>{ $('#vermenu').classList.remove('open'); $('#verbtn').classList.remove('open'); });
+
+const logs=[]; function log(m){ const t=new Date().toLocaleTimeString([], {hour12:false}); logs.push(`[${t}] ${m}`); $('#logtxt').textContent=logs.join('\n'); }
+log('A23 boot complete'); log('Wi-Fi signal low'); log('Fan motor heat rising ×6');
+$('#logbtn').onclick=()=>{ $('#logsheet').classList.add('open'); $('#logtxt').scrollTop=1e6; };
+$('#logclose').onclick=()=>$('#logsheet').classList.remove('open');
+
+/* ---------- TEACH ---------- */
+$('#teachnew').onclick=()=>{ log('Teaching: new workflow'); go('start'); };
+$('#confirmStart').onclick=()=>{ toMoving(); };
+
+/* ---------- CAMERA background (inline SVG hallway) ---------- */
+function lamp(cx,cy,r){ return `<ellipse cx="${cx}" cy="${cy-r*.9}" rx="${r*.9}" ry="${r*.45}" fill="#6b6b6d"/><ellipse cx="${cx}" cy="${cy}" rx="${r*.82}" ry="${r*.38}" fill="#fbe9c4"/>`; }
+$('#camsvg').innerHTML = `
+<svg viewBox="0 0 800 1280" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="fl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b98a52"/><stop offset="1" stop-color="#d1a66c"/></linearGradient>
+    <linearGradient id="ce" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a2321"/><stop offset="1" stop-color="#494545"/></linearGradient>
+    <linearGradient id="wr" x1="0" x2="1"><stop offset="0" stop-color="#d9d4cd"/><stop offset="1" stop-color="#f3efe8"/></linearGradient>
+    <linearGradient id="tr" x1="0" x2="1" y1="1" y2="0"><stop offset="0" stop-color="#25d9a0" stop-opacity=".85"/><stop offset="1" stop-color="#25d9a0" stop-opacity=".7"/></linearGradient>
+  </defs>
+  <rect width="800" height="1280" fill="#111"/>
+  <rect width="800" height="930" fill="url(#ce)"/>
+  <!-- right wall -->
+  <path d="M560 560 L800 380 L800 930 L560 700Z" fill="url(#wr)"/>
+  <rect x="640" y="410" width="60" height="280" fill="#c08a4a" opacity=".85" transform="skewY(-6) translate(0 70)"/>
+  <!-- far wall -->
+  <rect x="420" y="540" width="140" height="170" fill="#e6e2da"/>
+  <rect x="470" y="560" width="40" height="130" fill="#444"/>
+  <!-- floor -->
+  <path d="M0 930 L0 780 L420 700 L560 700 L800 760 L800 930Z" fill="url(#fl)"/>
+  <path d="M200 930 L470 700 M300 930 L490 700 M420 930 L510 700 M540 930 L530 700 M700 930 L560 700" stroke="#a97b45" stroke-width="2" opacity=".6"/>
+  <!-- desks left -->
+  <path d="M0 640 L330 700 L330 790 L0 860Z" fill="#161618"/>
+  <rect x="20" y="560" width="190" height="140" fill="#0e0e10"/><rect x="30" y="570" width="170" height="120" fill="#1b2a3b"/>
+  <rect x="0" y="780" width="300" height="60" fill="#c79a5c"/>
+  <rect x="40" y="650" width="26" height="110" fill="#2b4b45" opacity=".9"/>
+  <!-- ceiling lamps -->
+  ${lamp(390,120,170)}${lamp(410,350,88)}${lamp(350,420,64)}${lamp(380,470,48)}${lamp(410,500,36)}${lamp(430,520,26)}
+  <rect x="300" y="190" width="14" height="40" fill="#555"/>
+  <rect x="480" y="30" width="26" height="60" rx="6" fill="#ccc" opacity=".6"/>
+  <!-- exit sign -->
+  <rect x="490" y="470" width="62" height="24" fill="#16a05a"/><text x="497" y="487" font-size="14" fill="#fff" font-family="sans-serif">Fire exit</text>
+  <!-- trajectory strips -->
+  <path d="M290 930 L405 610 L440 612 L350 930Z" fill="url(#tr)"/>
+  <path d="M520 610 L560 610 L600 930 L570 930Z" fill="url(#tr)"/>
+  <!-- bins -->
+  <rect x="590" y="720" width="110" height="170" fill="#8d9087"/><rect x="640" y="760" width="40" height="60" fill="#fff"/>
+  <rect x="650" y="660" width="140" height="70" fill="#b58b58"/>
+  <rect x="0" y="925" width="800" height="355" fill="#000"/>
+</svg>`;
+
+/* ---------- gauge ---------- */
+function gaugeSvg(){
+  let ticks=''; const n=8, r=118, cx=128.5, cy=128.5, gap=0.06, span=Math.PI; // semicircle top
+  for(let i=0;i<n;i++){
+    const a0=Math.PI+ (i/n)*span+gap, a1=Math.PI+((i+1)/n)*span-gap;
+    const p=(a,rr)=>`${(cx+rr*Math.cos(a)).toFixed(1)} ${(cy+rr*Math.sin(a)).toFixed(1)}`;
+    ticks+=`<path d="M${p(a0,r)} A${r} ${r} 0 0 1 ${p(a1,r)}" stroke="#000" stroke-width="12" fill="none"/>`;
+  }
+  return `<svg viewBox="0 0 257 257"><circle cx="128.5" cy="128.5" r="134" fill="#000" transform="translate(0 0)" style="opacity:0"/><circle cx="128.5" cy="128.5" r="128" fill="#fff"/>${ticks}</svg>`;
+}
+$$('[data-gauge]').forEach(g=>{ g.innerHTML = gaugeSvg()+`<div class="v"><span class="num">0</span>${g.dataset.gauge==='ms'?'<small>ms</small>':''}</div>`; });
+const setGauge = v => $$('.gauge .num').forEach(n=>n.textContent=v);
+
+/* ---------- moving → recording ---------- */
+let moveTimer;
+function toMoving(){
+  go('cam'); $('#movingUI').style.display='block'; $('#recUI').style.display='none';
+  $('#movingText').textContent='Move the robot to Start position.';
+  $$('[data-bar="rec"]').forEach(b=>bar(b,'teach'));
+  let v=0; setGauge(0);
+  clearInterval(moveTimer);
+  moveTimer=setInterval(()=>{ v=Math.max(0,Math.min(180,v+Math.round((Math.random()-.35)*30))); setGauge(v); },350);
+}
+$('#movingLeave').onclick=()=>{ clearInterval(moveTimer); go('teach'); };
+$('#movingConfirm').onclick=()=>{ clearInterval(moveTimer); startRec(); };
+
+/* trajectory dots (positions taken from the Figma frame, panel-relative) */
+const PTS=[[166,137],[174,129],[182,121],[194,118],[210,118],[215,123],[222,129],[226,145],[226,147],[234,151],[242,153],[258,155],[258,163],[258,171]];
+function buildTraj(){
+  const t=$('#traj'); t.innerHTML='';
+  const s=document.createElement('div'); s.className='dot start'; s.style.left='150px'; s.style.top='139px'; t.appendChild(s);
+  PTS.forEach(([x,y],i)=>{ const d=document.createElement('div'); d.className='dot'+(i===PTS.length-1?' end':''); d.style.left=x+'px'; d.style.top=y+'px'; t.appendChild(d); });
+}
+function startRec(){
+  S.recording=true; S.recSeconds=0; S.num=0; S.tags=[]; S.paused=false;
+  $('#movingUI').style.display='none'; $('#recUI').style.display='block';
+  $$('[data-bar="rec"]').forEach(b=>bar(b,'rec'));
+  buildTraj(); setGauge(0); updTimer(); log('Recording started');
+  let step=0; clearInterval(S.recTimer);
+  S.recTimer=setInterval(()=>{
+    if(S.paused) return;
+    S.recSeconds++; updTimer();
+    const dots=$$('#traj .dot'); if(step<PTS.length){ dots[step+1].classList.add('show'); step++; }
+    S.num=Math.max(0,Math.min(99,S.num+Math.round((Math.random()-.4)*4))); setGauge(S.num);
+  },700);
+}
+function updTimer(){ const m=String(Math.floor(S.recSeconds/60)).padStart(2,'0'), s=String(S.recSeconds%60).padStart(2,'0'); $('#rectimer').textContent=`${m}:${s}`; }
+function stopRec(){ clearInterval(S.recTimer); clearInterval(moveTimer); S.recording=false; closePopups(); }
+
+/* ---------- popups ---------- */
+function openPopup(id){ $('#ov').classList.add('show'); $$('.popup').forEach(p=>p.classList.remove('show')); $(id).classList.add('show'); }
+function closePopups(){ $('#ov').classList.remove('show'); $$('.popup').forEach(p=>p.classList.remove('show')); }
+
+$('#rRestart').onclick=()=>{ S.recSeconds=0; S.num=0; buildTraj(); startRec(); toast('Recording restarted'); };
+$('#rTag').onclick=()=>{
+  const list=$('#poiList'); list.innerHTML=''; S.poi=null;
+  ['Shelf A','Shelf B','Table','Door','Charging dock'].forEach(n=>{
+    const d=document.createElement('div'); d.textContent=n;
+    d.onclick=()=>{ $$('#poiList div').forEach(x=>x.classList.remove('sel')); d.classList.add('sel'); S.poi=n; };
+    list.appendChild(d);
+  });
+  openPopup('#pPoi');
+};
+$('#poiX').onclick=closePopups;
+$('#poiRemove').onclick=()=>{ if(S.tags.length){ const r=S.tags.pop(); toast('Removed tag: '+r); } else toast('No tags to remove'); closePopups(); };
+$('#poiConfirm').onclick=()=>{ if(!S.poi){ toast('Select a PoI first'); return; } S.tags.push(S.poi); log('Tagged PoI: '+S.poi); toast('Tagged: '+S.poi); closePopups(); };
+
+$('#rComplete').onclick=()=>{ openPopup('#pComplete'); };
+$('#cLeave').onclick=()=>{ closePopups(); };
+$('#cSave').onclick=()=>{
+  openPopup('#pSaved'); log(`Workflow saved (${S.recSeconds}s, ${S.tags.length} PoI tags)`);
+  clearInterval(S.recTimer);
+  setTimeout(()=>{ closePopups(); go('teach'); toast('Workflow saved'); },1800);
+};
+$('#ov').onclick=()=>{ /* tapping the dim area does nothing, matches modal behaviour */ };
+
+/* reset */
+addEventListener('keydown',e=>{ if(e.key==='r'||e.key==='R'){ stopRec(); S.paused=false; refreshBars(); renderAlerts(); $('#noalerts').style.display='none'; go('home'); } });
+})();
+</script>
+</body>
+</html>
