@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Humanoid Robot Interface – Beta 0</title>
+<style>
+  :root {
+    --bg: #1b1c20; --panel: #26282e; --line: #3a3d46; --text: #e8e9ed; --muted: #9a9ca6;
+    --blue: #4a5be0; --yellow: #ffc400; --red: #ff3b0a; --teal: #3fe0c0; --amber: #ffa800;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { display: flex; gap: 28px; padding: 20px; align-items: flex-start; justify-content: center; flex-wrap: wrap; }
+  h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+  .col { display: flex; flex-direction: column; gap: 18px; }
+  .scaler { position: relative; }
+  .scaler > .native { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+  .bezel { background: #000; border-radius: 10px; outline: 6px solid #33353d; overflow: hidden; }
+
+  /* ---------- Head display (960 x 480) ---------- */
+  #head { width: 960px; height: 480px; position: relative; background: #000; color: #fff; font-weight: 700; }
+  #head canvas { position: absolute; inset: 0; opacity: .9; }
+  #head .hud { position: absolute; inset: 0; }
+  .hicon { position: absolute; top: 40px; width: 180px; height: 150px; }
+  .hmsg { position: absolute; left: 150px; right: 150px; text-align: center; background: #000; padding: 10px 0; border-radius: 14px; }
+  .hbadge { position: absolute; width: 64px; height: 64px; border-radius: 50%; background: #fff; color: #000; font-size: 40px;
+    display: grid; place-items: center; font-weight: 800; }
+  .hpause { position: absolute; left: 50%; top: 270px; transform: translateX(-50%); display: flex; gap: 28px; }
+  .hpause i { width: 34px; height: 130px; background: #fff; border-radius: 17px; display: block; }
+  .blink { animation: blink 1.4s steps(2, start) infinite; }
+  @keyframes blink { 50% { opacity: .15; } }
+
+  /* ---------- Touch display (800 x 1280) ---------- */
+  #touch { width: 800px; height: 1280px; position: relative; background: #000; color: #fff; overflow: hidden; font-size: 28px; user-select: none; }
+  .sbar { height: 96px; display: flex; align-items: center; padding: 0 28px; gap: 18px; font-weight: 600; font-size: 30px; position: relative; z-index: 5; }
+  .sbar .id { opacity: .95; } .sbar .st { flex: 1; text-align: left; margin-left: 20px; letter-spacing: .03em; }
+  .pill { background: #2a2a2c; border-radius: 30px; padding: 8px 20px; font-size: 26px; display: flex; gap: 10px; align-items: center; }
+  .rbtn { width: 62px; height: 62px; border-radius: 50%; background: #fff; display: grid; place-items: center; border: 0; padding: 0; cursor: pointer; }
+  .rbtn.off { background: #2a2a2c; } .rbtn.yellow { background: var(--yellow); }
+  .rbtn svg { width: 34px; height: 34px; }
+  .content { position: absolute; top: 96px; bottom: 150px; left: 0; right: 0; }
+  .tabs { position: absolute; bottom: 0; left: 0; right: 0; height: 150px; display: flex; justify-content: center; align-items: center; gap: 40px; z-index: 4; }
+  .tab { width: 100px; height: 100px; border-radius: 50%; background: #5b5d66; display: grid; place-items: center; border: 0; cursor: pointer; }
+  .tab.sel { background: #fff; box-shadow: 0 0 0 6px #fff3; } .tab svg { width: 56px; height: 56px; }
+  .btn { background: var(--blue); color: #fff; border: 0; border-radius: 16px; font-weight: 600; font-size: 30px; font-family: inherit; padding: 28px; cursor: pointer; }
+  .btn.w { background: #fff; color: #111; } .btn.dis { background: #333; color: #777; pointer-events: none; }
+  .btn.ghost { background: #ececf1; color: #111; }
+  .robot-fig { position: absolute; left: 50%; top: 40px; transform: translateX(-50%); }
+  .dash { position: absolute; right: 0; top: 110px; width: 426px; height: 799px; border: 3px dashed #777; background: #333; display: none; }
+  .alerts { position: absolute; right: 16px; top: 16px; width: 430px; display: flex; flex-direction: column; gap: 10px; }
+  .alert { background: #fde8e8; color: #7a1111; border-radius: 10px; padding: 12px 16px; font-size: 20px; line-height: 1.25; }
+  .alert b { color: #c00; font-weight: 700; }
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,.55); z-index: 10; }
+  .modal { position: absolute; left: 70px; width: 650px; background: #fff; color: #000; border-radius: 28px; z-index: 11; padding: 36px 30px 30px; text-align: center; font-weight: 600; }
+  .modal .x { position: absolute; right: 26px; top: 22px; width: 44px; height: 44px; border: 0; background: none; cursor: pointer; }
+  .modal .prog { height: 12px; background: #d9d9d9; border-radius: 6px; margin-top: 24px; overflow: hidden; }
+  .modal .prog i { display: block; height: 100%; background: #111; width: 100%; animation: shrink linear forwards; }
+  @keyframes shrink { from { width: 100%; } to { width: 0; } }
+  .warn-dot { width: 72px; height: 72px; border-radius: 50%; background: var(--red); color: #fff; font-size: 46px; font-weight: 800; display: grid; place-items: center; margin: 0 auto 20px; }
+  .modal p { margin: 0 0 18px; font-size: 30px; }
+  .cam { position: absolute; inset: 0; background: #111; overflow: hidden; }
+  .menu { position: absolute; top: 90px; right: 28px; width: 440px; background: #2b2b2e; border-radius: 16px; padding: 10px 0; z-index: 8; font-size: 26px; }
+  .menu div { padding: 18px 26px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+  .menu .sec { color: #999; font-size: 22px; padding: 12px 26px 4px; cursor: default; }
+  .menu hr { border: 0; border-top: 1px solid #444; margin: 4px 0; }
+  .menu div:hover:not(.sec) { background: #3a3a3e; }
+  .rec { position: absolute; left: 0; right: 0; bottom: 0; background: #000; padding: 20px 28px 28px; }
+  .rec .row { display: flex; gap: 20px; } .rec .row .btn { flex: 1; font-size: 28px; padding: 24px; }
+  .count { position: absolute; left: 20px; bottom: 150px; width: 170px; height: 170px; border-radius: 50%; background: #fff; color: #000; font-size: 110px; font-weight: 800; display: grid; place-items: center; }
+  .poi div { padding: 18px; border: 2px solid #e1e1e6; border-radius: 12px; margin-bottom: 12px; cursor: pointer; font-weight: 500; }
+  .poi div.sel { border-color: var(--blue); background: #eef0ff; }
+  .rlist { margin: 24px 28px; background: #2b2b2e; border-radius: 14px; padding: 8px 20px; font-size: 24px; }
+  .rlist div { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #3a3a3e; } .rlist div:last-child { border: 0; }
+
+  /* ---------- Controls panel ---------- */
+  .ctl { width: 420px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .ctl .grp { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .cbtn { background: #34363f; color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; font-weight: 600; font-size: 13px; font-family: inherit; cursor: pointer; }
+  .cbtn:hover { background: #3f424d; } .cbtn.on { background: var(--blue); border-color: var(--blue); }
+  .phys { display: flex; gap: 22px; align-items: center; margin-bottom: 14px; }
+  .pbtn { width: 78px; height: 78px; border-radius: 50%; border: 5px solid #111; background: #222; color: #fff; font-size: 11px; font-weight: 700; cursor: pointer; display: grid; place-items: center; text-align: center; }
+  .pbtn.led-yellow { box-shadow: 0 0 0 4px var(--yellow), 0 0 22px var(--yellow); }
+  .pbtn.led-white { box-shadow: 0 0 0 4px #fff; } .pbtn.led-blink { animation: ring 1.4s infinite; }
+  @keyframes ring { 50% { box-shadow: 0 0 0 4px #fff0; } }
+  .hint { color: var(--muted); font-size: 12.5px; line-height: 1.5; margin: 0; }
+  .log { background: #181a1e; border-radius: 8px; padding: 10px; height: 110px; overflow: auto; font: 12px ui-monospace, monospace; color: #b8bac4; }
+</style>
+</head>
+<body>
+
+<div class="col">
+  <div>
+    <h2>Head display · 960×480</h2>
+    <div class="scaler" id="headScaler"><div class="native bezel" id="headNative"><div id="head"></div></div></div>
+  </div>
+  <div class="ctl">
+    <h2>Physical controls &amp; simulation</h2>
+    <div class="phys">
+      <button class="pbtn" id="ppBtn" title="Play / Pause">PLAY /<br>PAUSE</button>
+      <button class="pbtn" id="reposeBtn" title="Repose (hold)">REPOSE<br>(hold)</button>
+      <p class="hint">Press <b>Play/Pause</b> first to activate the touch display. Press <b>Repose</b> while paused to release the grippers.</p>
+    </div>
+    <div class="grp">
+      <button class="cbtn" id="humanBtn">Human nearby</button>
+      <button class="cbtn" id="faultBtn">Inject fault</button>
+      <button class="cbtn" id="battBtn">Battery −10%</button>
+      <button class="cbtn" id="handleBtn">Grab / release handle</button>
+      <button class="cbtn" id="resetBtn">Reset</button>
+    </div>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<div>
+  <h2>Touch display · 800×1280</h2>
+  <div class="scaler" id="touchScaler"><div class="native bezel" id="touchNative"><div id="touch"></div></div></div>
+</div>
+
+<script>
+/* ------------------------------------------------------------------ icons */
+const I = {
+  battery: '<svg viewBox="0 0 220 180" class="hicon" style="left:155px"><path fill="#fff" d="M30 40h40V10h60v30h60v130H30z M70 80v70h80V80z" fill-rule="evenodd"/></svg>',
+  wifiOn: c => `<svg viewBox="0 0 220 180" class="hicon" style="left:395px"><g fill="none" stroke="${c}" stroke-width="22" stroke-linecap="round"><path d="M20 70q90-80 180 0"/><path d="M52 104q58-50 116 0"/></g><circle cx="110" cy="140" r="16" fill="${c}"/></svg>`,
+  wifiOff: '<svg viewBox="0 0 220 180" class="hicon" style="left:395px"><g fill="none" stroke="#777" stroke-width="22" stroke-linecap="round"><path d="M20 70q90-80 180 0"/><path d="M52 104q58-50 116 0"/></g><circle cx="110" cy="140" r="16" fill="#777"/><path d="M30 20L190 165" stroke="#ff3b0a" stroke-width="16"/></svg>',
+  alert: c => `<svg viewBox="0 0 220 180" class="hicon" style="left:640px"><path fill="${c}" d="M110 10L212 170H8z"/><rect x="100" y="62" width="20" height="60" rx="8" fill="#000"/><circle cx="110" cy="142" r="11" fill="#000"/></svg>`,
+  gripClosed: '<svg viewBox="0 0 100 100" width="64" height="64"><circle cx="50" cy="50" r="48" fill="#000" stroke="#fff" stroke-width="3"/><path fill="#fff" d="M38 22h10v40h-10zM52 22h10v40H52zM36 62h28v12H36z"/></svg>',
+  gripOpen: '<svg viewBox="0 0 100 100" width="64" height="64"><circle cx="50" cy="50" r="48" fill="#000" stroke="#fff" stroke-width="3"/><path fill="#fff" d="M22 34l12 0 6 24h20l6-24h12l-8 38H30z"/></svg>',
+  robotTab: '<svg viewBox="0 0 64 64"><rect x="10" y="14" width="44" height="36" rx="10" fill="#1d3b2d" stroke="#fff" stroke-width="3"/><circle cx="24" cy="30" r="5" fill="#3fe0c0"/><circle cx="40" cy="30" r="5" fill="#3fe0c0"/></svg>',
+  teachTab: '<svg viewBox="0 0 64 64" fill="none" stroke="#2c3a8f" stroke-width="7" stroke-linecap="round"><path d="M14 20h30a10 10 0 010 20H20a8 8 0 000 16h22"/><circle cx="48" cy="52" r="4" fill="#2c3a8f"/></svg>',
+  toolTab: '<svg viewBox="0 0 64 64" fill="#fff"><path d="M22 14h20v8h10a4 4 0 014 4v26a4 4 0 01-4 4H12a4 4 0 01-4-4V26a4 4 0 014-4h10zm6 4v4h8v-4z"/><rect x="8" y="34" width="48" height="4" fill="#5b5d66"/></svg>',
+  cogTab: '<svg viewBox="0 0 64 64" fill="#222"><path d="M28 6h8l2 8 6 3 7-4 6 6-4 7 3 6 8 2v8l-8 2-3 6 4 7-6 6-7-4-6 3-2 8h-8l-2-8-6-3-7 4-6-6 4-7-3-6-8-2v-8l8-2 3-6-4-7 6-6 7 4 6-3z" transform="scale(.8) translate(8 8)"/><circle cx="32" cy="32" r="9" fill="#5b5d66"/></svg>',
+  pause: '<svg viewBox="0 0 34 34"><rect x="7" y="5" width="7" height="24" rx="2" fill="#111"/><rect x="20" y="5" width="7" height="24" rx="2" fill="#111"/></svg>',
+  speaker: '<svg viewBox="0 0 34 34"><path d="M6 13h6l8-7v22l-8-7H6z" fill="#111"/><path d="M24 11q5 6 0 12M27 8q8 9 0 18" stroke="#111" stroke-width="2.5" fill="none"/></svg>',
+  wifiT: on => `<svg viewBox="0 0 34 34"><path d="M2 12q15-13 30 0l-15 18z" fill="${on ? '#111' : '#777'}"/></svg>`,
+  cloud: '<svg viewBox="0 0 34 34"><path d="M9 26a7 7 0 010-14 9 9 0 0117 2 6 6 0 01-1 12z" fill="#111"/></svg>',
+  x: '<svg viewBox="0 0 44 44" width="44" height="44"><circle cx="22" cy="22" r="17" fill="none" stroke="#000" stroke-width="3"/><path d="M15 15l14 14M29 15L15 29" stroke="#000" stroke-width="3"/></svg>',
+};
+
+/* ------------------------------------------------------------------ state */
+const initial = () => ({
+  active: false, paused: false, human: false, fault: false, battery: 70, wifi: true, handle: false,
+  tab: 'robot', modal: null, modalKey: 0, wifiMenu: false, qr: false,
+  repose: null /* {phase:'wait'|'open'|'done', n} */,
+  teach: { step: 'list', n: 3, secs: 0, poi: 0, recordings: [['Humanoid office', '00:00:00'], ['Humanoid office', '00:00:00']] },
+});
+let S = initial();
+const timers = {};
+const $ = id => document.getElementById(id);
+const log = m => { const l = $('log'); l.innerHTML += `<div>› ${m}</div>`; l.scrollTop = 1e9; };
+const set = (p, silent) => { Object.assign(S, p); render(); };
+const clearT = k => { clearInterval(timers[k]); clearTimeout(timers[k]); delete timers[k]; };
+
+function mode() {
+  if (!S.active) return 'IDLE';
+  if (S.repose) return 'REPOSE';
+  if (S.paused) return 'PAUSED';
+  if (S.tab === 'teach' && S.teach.step !== 'list') return 'Teaching';
+  if (S.human) return 'SLOWDOWN';
+  return 'RUNNING';
+}
+
+/* ------------------------------------------------------------------ head display */
+function dots() {
+  const c = document.createElement('canvas'); c.width = 960; c.height = 480;
+  const g = c.getContext('2d'); g.fillStyle = '#fff';
+  let seed = 7; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let y = 12; y < 480; y += 22) for (let x = 12; x < 960; x += 22) {
+    const edge = Math.min(x, 960 - x, y, 480 - y) / 240; // bigger dots toward the edges
+    const rad = Math.max(1.2, (1.6 + r() * 7 * (1 - Math.min(edge, 1))) * (r() > .35 ? 1 : .4));
+    g.beginPath(); g.arc(x + (r() - .5) * 6, y + (r() - .5) * 6, rad, 0, 7); g.fill();
+  }
+  return c;
+}
+const dotCanvas = dots();
+
+function head() {
+  const col = S.fault ? 'var(--red)' : 'var(--amber)';
+  let top = I.battery + (S.wifi ? I.wifiOn('#ffc400') : I.wifiOff) + I.alert(S.fault ? '#ff3b0a' : '#ff3b0a');
+  const badge = `<div class="hbadge" style="left:${640 + 118}px;top:34px">${S.fault ? 2 : 88}</div>`;
+  const bl = S.battery < 25 ? `<div class="hbadge" style="left:262px;top:34px;background:#ff3b0a;color:#fff;font-size:30px">${S.battery}</div>` : '';
+  let msg = '', mid = '';
+  const M = (t, y = 260, sz = 34) => `<div class="hmsg" style="top:${y}px;font-size:${sz}px">${t}</div>`;
+  if (S.repose) {
+    const p = S.repose;
+    if (p.phase === 'wait') msg = M('REPOSE IN ' + p.n + 's<br>OR HOLD REPOSE BUTTON<br>TO OPEN GRIPPERS', 250, 32) + M('<span style="font-size:24px;font-weight:600">HELD ITEMS MAY DROP</span>', 400, 24);
+    if (p.phase === 'open') msg = M('OPENING GRIPPERS IN', 270, 34) + `<div class="hmsg" style="top:330px;font-size:64px;display:flex;justify-content:center;gap:30px;align-items:center">${I.gripClosed.replace('64', '80').replace('64', '80')}<span>${p.n}</span></div>`;
+    if (p.phase === 'done') msg = M('GRIPPERS OPEN', 270, 34) + `<div class="hmsg" style="top:330px">${I.gripOpen.replace(/64/g, '90')}<span style="font-size:60px;vertical-align:25px">✅</span></div>`;
+  } else if (!S.active) {
+    msg = M('PRESS PLAY / PAUSE TO ACTIVATE', 300, 30);
+  } else if (S.paused) {
+    mid = '<div class="hpause"><i></i><i></i></div>';
+  } else if (S.human) {
+    msg = M('<span style="color:var(--amber)">HUMAN DETECTED</span><br><span style="font-size:28px">SLOWING DOWN</span>', 270, 40);
+  } else if (S.tab === 'teach' && S.teach.step !== 'list') {
+    msg = M('TEACHING' + (S.teach.step === 'rec' ? ' · REC ' + fmt(S.teach.secs) : ''), 300, 36);
+  } else {
+    msg = M('<span style="color:var(--teal)">ROBOT READY</span>', 300, 36);
+  }
+  return `<div class="hud">${top}${badge}${bl}${msg}${mid}</div>`;
+}
+const fmt = s => '00:' + String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+
+/* ------------------------------------------------------------------ touch display */
+const humanoidSVG = `<svg class="robot-fig" width="300" height="640" viewBox="0 0 300 640">
+  <defs><linearGradient id="sk" x1="0" x2="1"><stop offset="0" stop-color="#cdbcbc"/><stop offset=".5" stop-color="#f5e9e9"/><stop offset="1" stop-color="#bfaeae"/></linearGradient></defs>
+  <ellipse cx="150" cy="60" rx="34" ry="46" fill="url(#sk)"/><rect x="138" y="100" width="24" height="24" fill="#ddd"/>
+  <path d="M96 128q54-18 108 0l8 150q-62 22-124 0z" fill="url(#sk)"/>
+  <path d="M96 134L62 250l-14 96 16 4 20-90 20-68zM204 134l34 116 14 96-16 4-20-90-20-68z" fill="url(#sk)"/>
+  <rect x="112" y="290" width="76" height="70" rx="8" fill="#bba" />
+  <rect x="56" y="378" width="188" height="48" fill="#e8dada"/><rect x="56" y="432" width="188" height="48" fill="#e8dada"/>
+  <circle cx="86" cy="496" r="10" fill="#555"/><circle cx="214" cy="496" r="10" fill="#555"/></svg>`;
+
+function statusBar() {
+  const st = mode();
+  const pauseCls = S.paused ? 'yellow' : (S.active ? '' : 'off');
+  return `<div class="sbar"><span class="id">A23</span><span class="st">${st}</span>
+    <button class="rbtn ${pauseCls}" data-a="pp">${I.pause}</button>
+    <span class="pill">${S.battery}% ▭</span>
+    <button class="rbtn off" style="background:#fff">${I.speaker}</button>
+    <button class="rbtn ${S.wifi ? '' : 'off'}" data-a="wifi">${I.wifiT(S.wifi)}</button>
+    <button class="rbtn">${I.cloud}</button></div>`;
+}
+
+function robotPanel() {
+  const faults = S.fault ? `<div class="alerts">${[1, 2].map(i => `<div class="alert"><b>Fan motor head failing</b><br>Slow or paused task. Check nothing is blocking the fan.</div>`).join('')}</div>` : '';
+  const repBtn = S.active && S.paused && !S.repose ? `<button class="btn" data-a="repose" style="position:absolute;left:40px;right:40px;bottom:30px">Repose</button>` : '';
+  const log = !S.paused && S.active ? `<button class="btn" style="position:absolute;left:40px;right:40px;bottom:30px;font-size:24px;padding:20px" data-a="noop">▪ Log view</button>` : '';
+  return `${humanoidSVG}${faults}${repBtn}${log}`;
+}
+
+function teachPanel() {
+  const t = S.teach;
+  if (t.step === 'list') return `<div style="padding-top:560px"><div class="rlist"><div style="color:#aaa"><span>Workflow recordings</span></div>${t.recordings.map(r => `<div><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div>
+      <button class="btn" data-a="teach-new" style="position:absolute;left:28px;right:28px;top:380px">Teach new workflow</button></div>`;
+  if (t.step === 'start') return `<div class="cam" style="background:#000">${S.handle ? camSVG() : '<svg viewBox="0 0 300 160" width="520" style="position:absolute;left:140px;top:160px"><ellipse cx="150" cy="110" rx="140" ry="30" fill="#333"/><rect x="120" y="40" width="60" height="60" fill="#3a5a4a"/><circle cx="150" cy="30" r="22" fill="#cfc"/></svg>'}
+      <div style="position:absolute;left:0;right:0;bottom:130px;text-align:center;font-weight:600;font-size:32px">Move the robot to Start position.</div>
+      <div style="position:absolute;left:20px;right:20px;bottom:20px;display:flex;gap:16px"><button class="btn w" data-a="handle" style="padding:22px 30px">${S.handle ? '✋' : '◎'}</button><button class="btn" data-a="teach-confirm" style="flex:1">Confirm</button></div>
+      <div style="position:absolute;left:20px;top:20px;color:#9fe;font-size:20px">${S.handle ? 'Handle grabbed – camera view' : 'Grab the handle (use “Grab / release handle”) to see camera view'}</div></div>`;
+  // countdown / recording: camera view
+  return `<div class="cam">${camSVG()}
+    <div class="count">${t.step === 'count' ? t.n : fmt(t.secs).slice(3)}</div>
+    <div class="rec"><div class="row"><button class="btn w" data-a="teach-restart">Restart</button><button class="btn" data-a="teach-tag" ${t.step === 'rec' ? '' : 'class="dis"'}>Tag</button><button class="btn w" data-a="teach-complete">Complete</button></div></div></div>`;
+}
+
+function camSVG() {
+  return `<svg viewBox="0 0 800 1000" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%">
+    <defs><linearGradient id="fl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b3226"/><stop offset="1" stop-color="#7a6a58"/></linearGradient></defs>
+    <rect width="800" height="1000" fill="#24262b"/><rect y="520" width="800" height="480" fill="url(#fl)"/>
+    <ellipse cx="400" cy="80" rx="90" ry="30" fill="#ffe9a8"/><ellipse cx="400" cy="75" rx="140" ry="12" fill="#ffe9a822"/>
+    <path d="M300 520L500 520L560 1000L240 1000z" fill="#5a4c3c"/>
+    <path d="M330 540L360 1000" stroke="#1fd17a" stroke-width="24"/><path d="M470 540L520 1000" stroke="#1fd17a" stroke-width="24"/>
+    <g fill="#4c525d"><rect x="40" y="380" width="200" height="150"/><rect x="560" y="360" width="200" height="170"/></g></svg>`;
+}
+
+function toolsPanel(t) { return `<div style="padding:60px 40px;color:#aaa;font-size:28px">${t} – TBD in design</div>`; }
+
+function modalHTML() {
+  const m = S.modal; if (!m) return '';
+  const wrap = (top, inner, x = true, prog = null) => `<div class="scrim" data-a="${m === 'poi' || m === 'save' || m === 'saved' ? 'noop' : 'close'}"></div>
+    <div class="modal" style="top:${top}px">${x ? `<button class="x" data-a="close">${I.x}</button>` : ''}${inner}${prog ? `<div class="prog"><i style="animation-duration:${prog}s" data-k="${S.modalKey}"></i></div>` : ''}</div>`;
+  if (m === 'press-pp') return wrap(260, `<div class="warn-dot">!</div><p>Press Play/Pause to safely pause the robot before using the screen.</p>
+      <svg viewBox="0 0 300 200" width="330" style="margin-top:10px"><rect width="300" height="200" fill="#444"/><text x="150" y="40" fill="#777" font-size="46" text-anchor="middle">B02</text><rect y="150" width="300" height="12" fill="#ddd"/><circle cx="150" cy="105" r="14" fill="#c22"/><path d="M20 70q30-30 60 0l-10 40z" fill="#7a4a30"/></svg>`, false, 5);
+  if (m === 'paused') return wrap(260, `<p style="margin-top:50px">Robot is safely paused</p><div style="display:flex;gap:28px;justify-content:center;margin:34px 0 20px"><i style="width:56px;height:150px;background:#0b0b0b;border-radius:18px"></i><i style="width:56px;height:150px;background:#0b0b0b;border-radius:18px"></i></div>`, true, 6);
+  if (m === 'repose') {
+    const p = S.repose;
+    if (p.phase === 'wait') return wrap(200, `<p style="font-size:34px;margin-bottom:6px">Releasing grippers in ${p.n}s</p><p style="font-size:24px;font-weight:500">Held items may fall.</p>
+      <div style="display:flex;gap:10px;margin:10px 0"><div style="flex:1;height:170px;background:linear-gradient(135deg,#1b5e4a,#d48a1a)"></div><div style="flex:1;height:170px;background:linear-gradient(135deg,#1b5e4a,#d48a1a)"></div></div>
+      <div style="font-size:24px">${I.gripClosed.replace(/64/g, '130')}<br>Grippers are closed</div>
+      <div class="btn" style="margin:20px 0 12px;background:#9da6f0;pointer-events:none">${p.n}s until grippers open</div><button class="btn ghost" data-a="repose-cancel" style="width:100%;font-size:26px">Cancel</button>`, false);
+    return wrap(160, `<p style="font-size:34px;margin-bottom:6px">${p.phase === 'open' ? 'Opening grippers…' : 'Both grippers open'}</p><p style="font-size:24px;font-weight:500">Continue to repose or if not successful try gripper release again</p>
+      <div style="display:flex;gap:10px;margin:10px 0"><div style="flex:1;height:170px;background:linear-gradient(135deg,#1b5e4a,#d48a1a)"></div><div style="flex:1;height:170px;background:linear-gradient(135deg,#1b5e4a,#d48a1a)"></div></div>
+      <div style="font-size:24px">${I.gripOpen.replace(/64/g, '130')}<br>Grippers are open</div>
+      <button class="btn ghost" data-a="repose-again" style="width:100%;margin:20px 0 12px;font-size:26px">Open grippers again</button><button class="btn" data-a="repose-done" style="width:100%">Repose</button>`, true);
+  }
+  if (m === 'poi') return wrap(300, `<p>Choose the PoI</p><div class="poi" style="text-align:left;margin:24px 0">${['Kitchen', 'Meeting room', 'Charging dock', 'Reception', 'Workbench'].map((n, i) => `<div class="${S.teach.poi === i ? 'sel' : ''}" data-a="poi" data-i="${i}">${n}</div>`).join('')}</div>
+      <div style="display:flex;gap:16px"><button class="btn ghost" style="flex:1" data-a="close">Remove</button><button class="btn" style="flex:1" data-a="poi-ok">Confirm</button></div>`, true);
+  if (m === 'save') return wrap(300, `<p style="text-align:left">Save recording?</p><div style="height:380px"></div><div style="display:flex;gap:16px"><button class="btn ghost" style="flex:1" data-a="teach-leave">Leave</button><button class="btn" style="flex:1" data-a="teach-save">Save</button></div>`, false);
+  if (m === 'saved') return wrap(260, `<p>Saved!</p><svg viewBox="0 0 120 300" width="170" style="margin:20px 0"><circle cx="60" cy="40" r="26" fill="#8a5a3c"/><rect x="30" y="70" width="60" height="110" rx="10" fill="#555"/><rect x="36" y="180" width="18" height="110" fill="#222"/><rect x="66" y="180" width="18" height="110" fill="#222"/></svg>`, false, 2.5);
+  return '';
+}
+
+function wifiMenu() {
+  if (!S.wifiMenu) return '';
+  return `<div class="menu"><div data-a="wifi-toggle">WiFi <span>${S.wifi ? '● On' : '○ Off'}</span></div><hr><div class="sec">Known Networks</div>
+    <div data-a="wifi-join">Humanoid <span>${S.wifi ? '✓' : ''}</span></div><div data-a="qr">Scan QR <span>▦</span></div><hr><div data-a="noop">Other Networks</div><div data-a="noop">WiFi settings</div></div>`;
+}
+
+function qrView() {
+  return `<div class="cam" style="top:0"><div style="position:absolute;left:12px;right:12px;top:12px;height:640px;background:linear-gradient(#8a6a48,#b28a5c);border-radius:8px;overflow:hidden">
+    <svg viewBox="0 0 200 200" width="360" style="position:absolute;left:200px;top:140px"><rect width="200" height="200" fill="#dfe6ea"/>${Array.from({length: 120}, (_, i) => `<rect x="${(i * 37) % 180 + 8}" y="${(i * 53) % 180 + 8}" width="10" height="10" fill="#111"/>`).join('')}<rect x="10" y="10" width="50" height="50" fill="none" stroke="#111" stroke-width="10"/><rect x="140" y="10" width="50" height="50" fill="none" stroke="#111" stroke-width="10"/><rect x="10" y="140" width="50" height="50" fill="none" stroke="#111" stroke-width="10"/></svg></div>
+    <div style="position:absolute;left:0;right:0;top:700px;text-align:center;color:#9fe;font-size:26px;padding:0 40px">Scanning… point the head camera at the Wi-Fi QR code</div>
+    <button class="btn w" data-a="qr-cancel" style="position:absolute;left:28px;right:28px;bottom:20px">Cancel</button></div>`;
+}
+
+function touch() {
+  let body;
+  if (S.qr) body = qrView();
+  else if (S.tab === 'robot') body = robotPanel();
+  else if (S.tab === 'teach') body = teachPanel();
+  else body = toolsPanel(S.tab === 'tools' ? 'Toolbox' : 'Settings');
+  const tabs = [['robot', I.robotTab], ['teach', I.teachTab], ['tools', I.toolTab], ['settings', I.cogTab]]
+    .map(([k, ic]) => `<button class="tab ${S.tab === k ? 'sel' : ''}" data-a="tab" data-t="${k}">${ic}</button>`).join('');
+  return `${statusBar()}${wifiMenu()}<div class="content">${body}</div><div class="tabs">${tabs}</div>${modalHTML()}`;
+}
+
+/* ------------------------------------------------------------------ render */
+let lastModalKey = -1;
+function render() {
+  const h = $('head'); h.innerHTML = ''; h.appendChild(dotCanvas.cloneNode(false)).getContext('2d').drawImage(dotCanvas, 0, 0);
+  h.insertAdjacentHTML('beforeend', head());
+  $('touch').innerHTML = touch();
+  // physical-button LEDs
+  $('ppBtn').className = 'pbtn' + (S.paused ? ' led-yellow' : S.active ? ' led-white' : ' led-blink');
+  $('reposeBtn').className = 'pbtn' + (S.repose ? ' led-blink' : S.paused ? ' led-white' : '');
+  $('humanBtn').classList.toggle('on', S.human); $('faultBtn').classList.toggle('on', S.fault); $('handleBtn').classList.toggle('on', S.handle);
+}
+
+/* ------------------------------------------------------------------ actions */
+function openModal(m, autoCloseMs) {
+  clearT('modal'); set({ modal: m, modalKey: S.modalKey + 1 });
+  if (autoCloseMs) timers.modal = setTimeout(() => { if (S.modal === m) closeModal(); }, autoCloseMs);
+}
+function closeModal() { clearT('modal'); set({ modal: null }); }
+
+function pressPlayPause() {
+  if (S.repose) return;
+  if (!S.active) { set({ active: true, paused: true }); log('Play/Pause pressed → GUI activated, robot paused'); openModal('paused', 6000); return; }
+  if (S.paused) { set({ paused: false, modal: null }); log('Robot resumed'); }
+  else { set({ paused: true }); log('Robot paused'); openModal('paused', 6000); }
+}
+
+function startRepose() {
+  if (!S.paused || S.repose) { log('Repose only available while paused'); return; }
+  let n = 10; set({ repose: { phase: 'wait', n }, tab: 'robot', qr: false, wifiMenu: false }); openModal('repose'); log('Repose: releasing grippers in 10s');
+  clearT('rep');
+  timers.rep = setInterval(() => {
+    const p = S.repose; if (!p) return clearT('rep');
+    if (p.phase === 'wait') {
+      if (p.n > 1) { p.n--; }
+      else { p.phase = 'open'; p.n = 3; log('Opening grippers'); }
+    } else if (p.phase === 'open') {
+      if (p.n > 1) p.n--; else { p.phase = 'done'; clearT('rep'); log('Grippers open'); }
+    }
+    render();
+  }, 1000);
+}
+function endRepose() { clearT('rep'); set({ repose: null, modal: null }); }
+
+function touchAction(a, el) {
+  const T = S.teach;
+  switch (a) {
+    case 'noop': break;
+    case 'close': closeModal(); break;
+    case 'pp': pressPlayPause(); break;
+    case 'tab': set({ tab: el.dataset.t, wifiMenu: false, qr: false }); log('Tab: ' + el.dataset.t); break;
+    case 'wifi': set({ wifiMenu: !S.wifiMenu }); break;
+    case 'wifi-toggle': set({ wifi: !S.wifi }); log('Wi-Fi ' + (S.wifi ? 'on' : 'off')); break;
+    case 'wifi-join': set({ wifi: true, wifiMenu: false }); log('Connected to Humanoid'); break;
+    case 'qr': set({ qr: true, wifiMenu: false }); log('QR scan started'); clearT('qr');
+      timers.qr = setTimeout(() => { set({ qr: false, wifi: true }); log('QR decoded → Wi-Fi connected'); }, 3500); break;
+    case 'qr-cancel': clearT('qr'); set({ qr: false }); break;
+    case 'repose': startRepose(); break;
+    case 'repose-cancel': endRepose(); log('Repose cancelled'); break;
+    case 'repose-again': startRepose(); break;
+    case 'repose-done': endRepose(); log('Repose complete'); break;
+    case 'handle': S.handle = !S.handle; render(); break;
+    case 'teach-new': T.step = 'start'; render(); log('Teaching: move robot to start position'); break;
+    case 'teach-confirm': T.step = 'count'; T.n = 3; T.secs = 0; render(); clearT('teach');
+      timers.teach = setInterval(() => {
+        if (T.step === 'count') { if (T.n > 0) T.n--; if (T.n === 0) { T.step = 'rec'; log('Recording path'); } }
+        else if (T.step === 'rec') T.secs++;
+        render();
+      }, 1000); break;
+    case 'teach-restart': clearT('teach'); T.step = 'start'; T.secs = 0; render(); break;
+    case 'teach-tag': if (T.step === 'rec') openModal('poi'); break;
+    case 'poi': T.poi = +el.dataset.i; render(); break;
+    case 'poi-ok': closeModal(); log('PoI tagged: ' + T.poi); break;
+    case 'teach-complete': clearT('teach'); openModal('save'); break;
+    case 'teach-leave': closeModal(); T.step = 'list'; render(); break;
+    case 'teach-save': T.recordings.unshift(['Humanoid office', fmt(T.secs)]); openModal('saved', 2500);
+      setTimeout(() => { T.step = 'list'; render(); }, 2500); log('Workflow saved'); break;
+  }
+}
+
+/* touch on the display before activation → prompt (design: "Touch display activation") */
+$('touch').addEventListener('click', e => {
+  const el = e.target.closest('[data-a]');
+  if (!S.active) {
+    if (S.modal !== 'press-pp') { log('Display touched before Play/Pause → prompt'); openModal('press-pp', 5000); }
+    return;
+  }
+  if (el) touchAction(el.dataset.a, el);
+  else if (S.wifiMenu) set({ wifiMenu: false });
+}, true);
+
+/* simulation controls */
+$('ppBtn').onclick = pressPlayPause;
+$('reposeBtn').onclick = startRepose;
+$('humanBtn').onclick = () => { set({ human: !S.human }); log(S.human ? 'Human detected → slowdown' : 'Human clear → normal speed'); };
+$('faultBtn').onclick = () => { set({ fault: !S.fault }); log(S.fault ? 'Fault injected' : 'Faults cleared'); };
+$('battBtn').onclick = () => { set({ battery: S.battery <= 10 ? 100 : S.battery - 10 }); };
+$('handleBtn').onclick = () => { S.handle = !S.handle; render(); log('Handle ' + (S.handle ? 'grabbed' : 'released')); };
+$('resetBtn').onclick = () => { Object.keys(timers).forEach(clearT); S = initial(); $('log').innerHTML = ''; render(); };
+
+/* scaling */
+function fit() {
+  const availH = innerHeight - 40;
+  const ts = Math.min(1, Math.min(availH, 1000) / 1280); // touch
+  const hs = Math.min(1, Math.min(innerWidth - 480 - 400, 640) / 960); // head
+  const hsc = Math.max(.35, Math.min(hs, innerWidth < 1100 ? (innerWidth - 60) / 960 : hs));
+  [['touch', ts, 800, 1280], ['head', hsc, 960, 480]].forEach(([k, s, w, h]) => {
+    $(k + 'Scaler').style.width = w * s + 'px'; $(k + 'Scaler').style.height = h * s + 'px';
+    $(k + 'Native').style.transform = `scale(${s})`;
+  });
+}
+addEventListener('resize', fit); fit(); render(); log('Robot idle. Press Play/Pause to activate the touch display.');
+</script>
+</body>
+</html>
